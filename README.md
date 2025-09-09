@@ -1,3 +1,5 @@
+![](example.png)
+
 ## Flujo dinámico de redirección con caché y control de horarios
 
 Automatización en n8n para redirigir a los usuarios a distintas URLs según la fecha y hora actuales, usando Google Sheets como panel de control y una capa de caché en memoria para máximo rendimiento. Ideal para QR/NFC, campañas y eventos que cambian en el tiempo.
