@@ -1,0 +1,557 @@
+{
+  "name": "NFC dinámico",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1) Entrada\nRecibe la solicitud inicial desde el dispositivo o NFC.",
+        "height": 320,
+        "width": 224,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3328,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "7a3dc9db-7cac-4873-bc16-ef0f0c78b833",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## 2) Contexto de entrada\n\nDefine variables base (ej. zona horaria, rango de datos, parámetros de consulta).",
+        "height": 320,
+        "width": 384,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3088,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "0bac856d-062d-493f-b2e6-e6b86c760c2a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 4) Consulta de Datos\n\nAccede a la hoja de cálculo y normaliza la información obtenida.",
+        "height": 320,
+        "width": 352,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2288,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "bd72d962-3109-4fc2-b057-75ef4ba17120",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 5) Almacenamiento en Caché\nGuarda los datos actualizados en memoria para reutilizarlos después.",
+        "height": 432,
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1920,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "4d9d4774-86da-4b51-bb35-3a9a8ba315a6",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## 6) Procesamiento Lógico\nInterpreta los datos y selecciona el resultado más adecuado según reglas y tiempo.",
+        "height": 320,
+        "width": 384,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1648,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "2a7dd0c2-e79a-4b96-ad73-c2e5f0c625f8",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## 7) Respuesta\nDevuelve la salida: modo debug o redirección dinámica al recurso correcto.",
+        "height": 432,
+        "width": 304,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1248,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "4ac0d4bc-5504-4610-b8e9-d9b090495a4e",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "path": "4449ee41-855a-4307-aa2e-df9a52d50302",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fb2a6803-bbf8-4e26-b8b7-fb13e4adb246",
+      "name": "Webhook (Entrada)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -3264,
+        -1328
+      ],
+      "webhookId": "4449ee41-855a-4307-aa2e-df9a52d50302"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "url",
+              "value": "tap"
+            },
+            {
+              "name": "range",
+              "value": "dashboard!A:G"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "df1cfc0a-3706-471b-8ab3-0d0ea086a834",
+      "name": "Configurar parámetros",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -3024,
+        -1328
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date(new Date().toLocaleString(\"en-US\", { timeZone: \"America/Denver\" }));\nreturn [{\n  nowISO: now.toISOString(),\n  nowTs: now.getTime(),\n  query: $json.query || {},\n  headers: $json.headers || {},\n  url: $json.url,\n  range: $json.range\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2848,
+        -1328
+      ],
+      "id": "d32ec860-7e8a-4b99-97a0-932dac439b7e",
+      "name": "Generar timestamp"
+    },
+    {
+      "parameters": {
+        "functionCode": "const TTL_MS = 60 * 1000;     // 60s\nconst FB_MS  = 60 * 60 * 1000; // 1h\n\nconst key = $json.range || 'dashboard!A:G';\nconst now = $json.nowTs;\n\nconst store = this.getWorkflowStaticData('global');\nstore.cache = store.cache || {};\nstore.fallback = store.fallback || {};\n\nlet fromCache = false;\nlet shouldFetch = true;\nlet data = null;\n\nif (store.cache[key] && (now - store.cache[key].fetchedAt) < TTL_MS) {\n  fromCache = true;\n  shouldFetch = false;\n  data = store.cache[key].data;\n}\n\nreturn [{\n  campus: $json.campus,\n  range: key,\n  nowISO: $json.nowISO,\n  nowTs: now,\n  query: $json.query || {},\n  headers: $json.headers || {},\n  cacheInfo: { fromCache, TTL_MS, FB_MS },\n  shouldFetch,\n  data\n}];"
+      },
+      "id": "9611cc12-a179-43d8-8ea5-58dfb51cc15b",
+      "name": "Control de caché",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -2640,
+        -1328
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.shouldFetch}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "02edc3ec-12ce-4202-ad97-1edfb9f5ea24",
+      "name": "¿Necesita actualización?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        -1328
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "10H-9itM15MbRjmfSVyQEkRKk6FQDdyM40DZG0vsj_kY",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "dashboard",
+          "mode": "name"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A:G"
+            }
+          }
+        }
+      },
+      "id": "244a9af9-24df-46ca-89aa-e3f02d3d7cda",
+      "name": "Leer hoja de datos",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -2240,
+        -1344
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "WhkwQOfC2IaJeUL2",
+          "name": "Google Service Account account"
+        }
+      },
+      "notes": "Configure Google Sheets credentials (Service Account or OAuth). Sharesheet with the service account email."
+    },
+    {
+      "parameters": {
+        "jsCode": "const ORDER = ['tipo','fecha_inicio','hora_inicio','fecha_fin','hora_fin','url','description'];\n\nlet rows = items.map(i => i.json ?? {});\nrows = rows.filter(r => {\n  const tipo = (r.tipo ?? '').toString().trim();\n  const url  = (r.url  ?? '').toString().trim();\n  if (tipo.toLowerCase() === 'tipo') return false; // header\n  if (!tipo && !url) return false;                 // vacías\n  return true;\n});\n\nconst values = rows.map(r => ORDER.map(k => (r[k] ?? '').toString()));\n\nconst now = new Date(new Date().toLocaleString(\"en-US\", { timeZone: \"America/Denver\" }));\nreturn [{\n  json: {\n    values,\n    url: $json.url ?? 'tap',\n    nowISO: now.toISOString(),\n    nowTs: now.getTime(),\n    query: $json.query ?? {},\n    headers: $json.headers ?? {},\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        -1344
+      ],
+      "id": "a09ec4c1-3301-4029-ba8b-a29a41c193ec",
+      "name": "Normalizar datos"
+    },
+    {
+      "parameters": {
+        "functionCode": "const store = this.getWorkflowStaticData('global');\nstore.cache = store.cache || {};\nstore.fallback = store.fallback || {};\n\nconst key = $json.range;\nconst now = $json.nowTs;\n\n// Save latest data for cache\nstore.cache[key] = { data: { values: $json.values }, fetchedAt: now };\n\n// Save fallback (used if Sheets fails later)\nstore.fallback[key] = { data: { values: $json.values }, storedAt: now };\n\nreturn items;"
+      },
+      "id": "df0efd81-3bec-4b80-b671-2bd4d79c740a",
+      "name": "Guardar en caché",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        -1344
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const d = $json.data;\nreturn [{\n  values: (d && d.values) ? d.values : [],\n  url: $json.url,\n  range: $json.range,\n  nowISO: $json.nowISO,\n  nowTs: $json.nowTs,\n  query: $json.query || {},\n  headers: $json.headers || {},\n}];"
+      },
+      "id": "c0ed88fc-05b1-4923-8703-7ce01d2f7543",
+      "name": "Usar caché",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        -1200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "function parseElPasoDateTime(fecha, hora){\n  if (!fecha || !hora) return null;\n  const [Y,M,D] = (''+fecha).trim().split('-').map(n=>parseInt(n,10));\n  const [h,m]   = (''+hora).trim().split(':').map(n=>parseInt(n,10));\n  return new Date(Y, (M||1)-1, D||1, h||0, m||0);\n}\n\nfunction fmt(date){\n  if (!date) return 'Invalid';\n  return date.toLocaleString(\"es-MX\", {\n    timeZone: \"America/Denver\",\n    year: 'numeric', month: '2-digit', day: '2-digit',\n    hour: '2-digit', minute: '2-digit', second: '2-digit',\n    hour12: false\n  });\n}\n\nconst nowTs = $json.nowTs;\nconst values = Array.isArray($json.values) ? $json.values : [];\n\nlet defaultUrl = null;\nconst specific = [];\nconst dynamics = [];\nlet log = '';\n\nlog += `🕓 Ahora (El Paso): ${$json.nowISO}\\n`;\nlog += `📊 Filas: ${values.length}\\n`;\n\nfor (const row of values) {\n  // expected row: [tipo, fecha_inicio, hora_inicio, fecha_fin, hora_fin, url, description]\n  const tipo = (row[0] || '').toString().trim();\n  const fecha_inicio = (row[1] || '').toString().trim();\n  const hora_inicio  = (row[2] || '').toString().trim();\n  const fecha_fin    = (row[3] || '').toString().trim();\n  const hora_fin     = (row[4] || '').toString().trim();\n  const url          = (row[5] || '').toString().trim();\n\n  if (tipo === 'default') {\n    defaultUrl = url;\n    log += `🔹 DEFAULT: ${url}\\n`;\n  } else if (tipo === 'specific' || tipo === 'dynamics') {\n    const start = parseElPasoDateTime(fecha_inicio, hora_inicio);\n    const end   = parseElPasoDateTime(fecha_fin, hora_fin);\n    const startTs = start ? start.getTime() : NaN;\n    const endTs   = end ? end.getTime() : NaN;\n    log += `${tipo === 'specific' ? '🔶 SPECIFIC' : '🔸 DYNAMICS'}: ${url} (${fmt(start)} → ${fmt(end)})\\n`;\n\n    const obj = { url, startTs, endTs };\n    if (tipo === 'specific') specific.push(obj);\n    else dynamics.push(obj);\n  }\n}\n\nlet selectedUrl = null;\nlet reason = 'No match';\n\n// SPECIFIC first\nfor (const s of specific) {\n  if (nowTs >= s.startTs && nowTs <= s.endTs) {\n    selectedUrl = s.url;\n    reason = 'Matched SPECIFIC';\n    break;\n  }\n}\n\n// DYNAMICS if no SPECIFIC\nif (!selectedUrl) {\n  for (const d of dynamics) {\n    if (nowTs >= d.startTs && nowTs <= d.endTs) {\n      selectedUrl = d.url;\n      reason = 'Matched DYNAMICS';\n      break;\n    }\n  }\n}\n\n// DEFAULT if none\nif (!selectedUrl && defaultUrl) {\n  selectedUrl = defaultUrl;\n  reason = 'Used DEFAULT';\n}\n\nlog += `\\n✅ Resultado: ${selectedUrl || 'No URL found'}\\n`;\nlog += `✅ Motivo: ${reason}\\n`;\n\nreturn [{\n  selectedUrl,\n  reason,\n  log,\n  campus: $json.campus,\n  query: $json.query || {},\n}];"
+      },
+      "id": "91f28383-a2ea-47a6-ae10-9e3eb477dac3",
+      "name": "Analizar y decidir",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1584,
+        -1344
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.query.debug}}",
+              "value2": "1"
+            }
+          ]
+        }
+      },
+      "id": "e466929a-66eb-4886-a68d-40979c32eee1",
+      "name": "¿Modo debug?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -1424,
+        -1344
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store, no-cache, must-revalidate, max-age=0"
+              },
+              {
+                "name": "Pragma",
+                "value": "no-cache"
+              },
+              {
+                "name": "Expires",
+                "value": "0"
+              },
+              {
+                "name": "Surrogate-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5738cf37-4efc-41ec-bc22-b6732b160ebd",
+      "name": "Respuesta debug",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1152,
+        -1360
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 302,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Location",
+                "value": "={{$json.selectedUrl}}"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store, no-cache, must-revalidate, max-age=0"
+              },
+              {
+                "name": "Pragma",
+                "value": "no-cache"
+              },
+              {
+                "name": "Expires",
+                "value": "0"
+              },
+              {
+                "name": "Surrogate-Control",
+                "value": "no-store"
+              }
+            ]
+          },
+          "responseKey": "No Response Body"
+        }
+      },
+      "id": "86812c22-66c1-45f5-84a7-8ba304b64eef",
+      "name": "Redirección dinámica",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1152,
+        -1216
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3) Gestión de Caché\n\nValida si los datos están en memoria para evitar lecturas innecesarias.",
+        "height": 320,
+        "width": 384,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2688,
+        -1488
+      ],
+      "typeVersion": 1,
+      "id": "7591cca4-56dd-4c64-a40e-f9847c85f640",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Flujo dinámico de redirección con caché y control de horarios\nEste flujo recibe solicitudes externas (por ejemplo, desde un dispositivo NFC o enlace) y responde con la URL adecuada según reglas configuradas en una hoja de Google Sheets.\n👨‍💻 Desarrollado por: Art Michel  \n🔗 [GitHub @artmichel-dev](https://github.com/artmichel-dev)\n",
+        "height": 128,
+        "width": 2384,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3328,
+        -1632
+      ],
+      "typeVersion": 1,
+      "id": "b437f219-857a-47a3-9a81-ca6b049e7d9c",
+      "name": "Sticky Note7"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (Entrada)": {
+      "main": [
+        [
+          {
+            "node": "Configurar parámetros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configurar parámetros": {
+      "main": [
+        [
+          {
+            "node": "Generar timestamp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar timestamp": {
+      "main": [
+        [
+          {
+            "node": "Control de caché",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Control de caché": {
+      "main": [
+        [
+          {
+            "node": "¿Necesita actualización?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Necesita actualización?": {
+      "main": [
+        [
+          {
+            "node": "Leer hoja de datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Usar caché",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer hoja de datos": {
+      "main": [
+        [
+          {
+            "node": "Normalizar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar datos": {
+      "main": [
+        [
+          {
+            "node": "Guardar en caché",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en caché": {
+      "main": [
+        [
+          {
+            "node": "Analizar y decidir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar caché": {
+      "main": [
+        [
+          {
+            "node": "Analizar y decidir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analizar y decidir": {
+      "main": [
+        [
+          {
+            "node": "¿Modo debug?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Modo debug?": {
+      "main": [
+        [
+          {
+            "node": "Respuesta debug",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Redirección dinámica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ac0a1fee-0665-4fd9-8c8c-121b098fcae8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6bb9a545fdbe2b6d9efa20aa8e6d38224cd5e21dfae16dbede48c9e982293795"
+  },
+  "id": "YiEj9xtXzto7n19T",
+  "tags": []
+}

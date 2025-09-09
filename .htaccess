@@ -1,0 +1,14 @@
+# .htaccess - Redirecciones TAP → n8n
+# Autor: Art Michel (@artmichel-dev)
+# Licencia: MIT
+
+# Redirecciones slug → n8n
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# ruta del slug
+RewriteCond %{REQUEST_URI} ^/tap-west
+# ruta redireccionada a n8n
+RewriteRule ^tap-west(.*)$ https://n8n.example.com/webhook/url [R=302,L]
+
+</IfModule>
